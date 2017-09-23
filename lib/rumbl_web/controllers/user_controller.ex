@@ -2,6 +2,7 @@ defmodule RumblWeb.UserController do
   use RumblWeb, :controller
   alias Rumbl.Repo
   alias RumblWeb.User
+  plug :authenticate when action in [:index, :show]
 
   def index(conn, _params) do
     users = Repo.all(User)
@@ -23,10 +24,24 @@ defmodule RumblWeb.UserController do
     case Repo.insert(changeset) do
       {:ok, user} ->
         conn
+        |> RumblWeb.Auth.login(user)
         |> put_flash(:info, "#{user.name} created!")
         |> redirect(to: user_path(conn, :index))
       {:error, changeset} ->
         render(conn, "new.html", changeset: changeset)
+    end
+  end
+
+  # Tries to get the current_user from the "assigns". Halt if it
+  # doesn't exist.
+  defp authenticate(conn, _opts) do
+    if conn.assigns.current_user do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must be logged in to access that page")
+      |> redirect(to: page_path(conn, :index))
+      |> halt()
     end
   end
 end
